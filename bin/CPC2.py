@@ -2,10 +2,10 @@
 
 # This version is edited at 20190124 for compatibility on OS system
 
+from subprocess import call
 import sys
 import os
 import re
-import commands
 import time
 from optparse import OptionParser,OptionGroup
 
@@ -85,7 +85,7 @@ class FindCDS:
 		'''
 		while True:
 			try: 
-				codon,index = triplet_got.next()
+				codon,index = next(triplet_got)
 			except StopIteration:
 				break 
 			if codon in starts and codon not in stops:
@@ -96,7 +96,7 @@ class FindCDS:
 				end_extension = False
 				while True:
 					try: 
-						codon,index = triplet_got.next()
+						codon,index = next(triplet_got)
 					except StopIteration:
 						end_extension = True
 						integrity = -1
@@ -250,11 +250,12 @@ def calculate_potential(fasta,strand,output_orf,outfile):
 	Calculate three features: putative peptide length,pI and Fickett
 	And assess coding potential based on SVM model
 	'''
+	import os
 	strinfoAmbiguous = re.compile("X|B|Z|J|U",re.I)
 	ptU = re.compile("U",re.I)
-	ftmp_feat = file(outfile + ".feat","w")
-	ftmp_svm = file(outfile + ".tmp.1","w")
-	ftmp_result = file(outfile,"w")
+	ftmp_feat = open(file=outfile + ".feat",mode="w")
+	ftmp_svm = open(file=outfile + ".tmp.1",mode="w")
+	ftmp_result = open(file=outfile,mode="w")
 	if output_orf == 1:
 		my_header = ["#ID","transcript_length","peptide_length","Fickett_score","pI","ORF_integrity","ORF_Start","coding_probability","label"]
 	else:
@@ -306,16 +307,17 @@ def calculate_potential(fasta,strand,output_orf,outfile):
 	script_dir,filename = os.path.split(os.path.abspath(sys.argv[0]))
 	data_dir = script_dir + "/../data/"
 	lib_dir = script_dir + "/../libs/"
-	app_svm_scale = lib_dir + "libsvm/libsvm-3.18/svm-scale"
-	app_svm_predict = lib_dir + "libsvm/libsvm-3.18/svm-predict"
-	os.system('test -x '+ app_svm_scale + ' || echo \"[ERROR] No excutable svm-scale on CPC2 path!\" > /dev/stderr')
-	os.system('test -x '+ app_svm_predict + ' || echo \"[ERROR] No excutable svm-predict on CPC2 path!\" > /dev/stderr')
+	app_svm_scale = "svm-scale" #lib_dir + "libsvm/libsvm-3.18/svm-scale"
+	app_svm_predict = "svm-predict" #lib_dir + "libsvm/libsvm-3.18/svm-predict"
+	#os.system('test -x '+ app_svm_scale + ' || echo \"[ERROR] No excutable svm-scale on CPC2 path!\" > /dev/stderr')
+	#os.system('test -x '+ app_svm_predict + ' || echo \"[ERROR] No excutable svm-predict on CPC2 path!\" > /dev/stderr')
 	
 	cmd = app_svm_scale + ' -r ' + data_dir + 'cpc2.range ' + outfile + '.tmp.1 > ' + outfile + '.tmp.2 &&'
 	cmd = cmd + app_svm_predict + ' -b 1 -q ' + outfile + '.tmp.2 ' + data_dir + 'cpc2.model ' + outfile + '.tmp.out'
 	#cmd = cmd + 'awk -vOFS="\\t" \'{if ($1 == 1){print $2,"coding"} else if ($1 == 0){print $2,"noncoding"}}\' ' + outfile + '.tmp.1 > ' + outfile + '.tmp.2 &&'
 	#cmd = cmd + 'paste ' + outfile + '.feat ' + outfile + '.tmp.2 >>' + outfile
-	(exitstatus, outtext) = commands.getstatusoutput(cmd)	
+	#(exitstatus, outtext) = commands.getstatusoutput(cmd)	
+	exitstatus = call(cmd, shell=True)
 	
 	'''deal with the output'''
 	#print outfile + '.tmp.out'
@@ -333,8 +335,8 @@ def calculate_potential(fasta,strand,output_orf,outfile):
 		prob[i] = str(array[1]) + '\t' + label
 	tmp_file.close()
 	# paste to features
-	tmp_file = open(outfile,'r')
-	out_file = open(outfile + '.txt','w')
+	tmp_file = open(file=outfile,mode='r')
+	out_file = open(file=outfile + '.txt',mode='w')
 	i = 0
 	for line in tmp_file:
 		i = i + 1
@@ -352,7 +354,8 @@ def calculate_potential(fasta,strand,output_orf,outfile):
 	if exitstatus == 0:
 		os.system('rm -f ' + outfile + '.tmp.1 ' + outfile + '.tmp.2 ' + outfile + '.tmp.out ' + outfile)
 		rm_cmd = "rm -f " + outfile + '.feat'
-		commands.getstatusoutput(rm_cmd)
+		#commands.getstatusoutput(rm_cmd)
+		rmexitstatus = call(rm_cmd, shell=True)
 		sys.stderr.write("[INFO] Running Done!\n")
 		return 0
 	else:
