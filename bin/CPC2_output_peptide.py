@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # This version is edited at 20190124 for compatibility on OS system
 
